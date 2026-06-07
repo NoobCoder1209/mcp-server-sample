@@ -67,6 +67,15 @@ MCP is one of the rarest, highest-paid skills on Upwork right now.
 5. README includes drop-in `claude_desktop_config.json` snippet.
 6. Optional `scripts/probe.ts` for local probe (great for the GIF).
 
+## Production hygiene (must apply, not optional)
+
+Inherits the master plan's "Production hygiene checklist." Repo-specific application:
+
+- **No env vars or secrets** — HN is public. Still ship `.env.example` (kept empty) for consistency.
+- **Validate every tool input with `zod`.** Already in scope. Reinforce: zod errors are caught by the dispatcher and surfaced via `{ content: [{ type: "text", text: "..." }], isError: true }`, never as raw exceptions.
+- **Global try/catch around tool dispatch.** `tools.ts` wraps every handler. Network failures, timeouts, unexpected response shapes → friendly text in `isError: true`, never a thrown error that crashes the server.
+- **No upstream stack traces in MCP responses.** Surface `"HN API unavailable. Try again in a moment."` rather than the raw fetch error.
+
 ## Out of scope
 
 - No auth / OAuth.
@@ -211,6 +220,7 @@ Topics: `mcp`, `model-context-protocol`, `claude-desktop`, `anthropic`, `typescr
 - [ ] Fresh clone: `pnpm install && pnpm build && pnpm probe` lists tools and calls one against real HN
 - [ ] Server connects to Claude Desktop using the snippet (manual test)
 - [ ] Each tool's error path returns `isError: true`
+- [ ] Network failure (e.g. mocked 503) returns a friendly `isError: true` text, not a thrown exception
 - [ ] Lint, type-check, tests, build green in CI
 - [ ] No env vars / secrets needed (HN public)
 - [ ] README config snippet uses `<absolute-path>` placeholder, not a hardcoded user path
