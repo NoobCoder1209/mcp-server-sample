@@ -4,6 +4,7 @@
   "description": "A minimal Model Context Protocol server in TypeScript that wraps the Hacker News API.",
   "license": "MIT",
   "type": "module",
+  "packageManager": "pnpm@9.15.4",
   "bin": {
     "mcp-server-sample": "dist/index.js"
   },
@@ -16,10 +17,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
+    "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', 0o755)\"",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "probe": "tsx scripts/probe.ts",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit"
@@ -37,5 +37,8 @@
     "tsx": "^4.19.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
   }
 }

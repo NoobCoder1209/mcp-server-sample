@@ -14,7 +14,7 @@ module.exports = {
     node: true,
     es2022: true,
   },
-  ignorePatterns: ["dist/", "node_modules/", "coverage/", "*.cjs"],
+  ignorePatterns: ["dist/", "node_modules/", "coverage/", ".eslintrc.cjs", "*.config.cjs"],
   rules: {
     "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
   },
