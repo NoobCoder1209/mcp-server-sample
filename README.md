@@ -18,13 +18,23 @@ Claude Desktop and your model can browse, fetch, and search HN through three too
 
 ## Skills demonstrated
 
-`MCP` · `Model Context Protocol` · `Anthropic Ecosystem` · `TypeScript` · `API Integration` ·
-`JSON-RPC` · `Node.js` · `Vitest`
+`MCP` · `Model Context Protocol` · `Anthropic Ecosystem` · `TypeScript` · `Zod` ·
+`API Integration` · `JSON-RPC` · `Hacker News API` · `Node.js` · `Vitest`
 
 ## Quick start (Claude Desktop)
 
-Drop this into your `claude_desktop_config.json` — replace `<absolute-path-to-mcp-server-sample>`
-with the absolute path to your clone of this repo:
+You need a built `dist/index.js` before Claude Desktop can launch the server, so
+clone, install, and build first:
+
+```bash
+git clone https://github.com/NoobCoder1209/mcp-server-sample.git
+cd mcp-server-sample
+pnpm install
+pnpm build
+```
+
+Then drop this into your `claude_desktop_config.json` — replace
+`<absolute-path-to-mcp-server-sample>` with the absolute path to your clone:
 
 ```json
 {
@@ -37,15 +47,8 @@ with the absolute path to your clone of this repo:
 }
 ```
 
-Then run, in this directory:
-
-```bash
-pnpm install
-pnpm build
-```
-
-Fully **quit and relaunch** Claude Desktop. The MCP slider in the conversation input confirms
-the server loaded.
+Fully **quit and relaunch** Claude Desktop. The MCP slider in the conversation input
+confirms the server loaded.
 
 **Config file paths:**
 

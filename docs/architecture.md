@@ -78,7 +78,7 @@ JSON Schema for the `tools/list` response automatically.
 
 Every error path returns a friendly text message with `isError: true`. **No raw exception
 ever crosses the JSON-RPC boundary**, and **no upstream stack trace is ever included** in
-the user-visible message. The smoke tests assert both invariants on every error case.
+the user-visible message. The smoke tests cover each error path and assert both invariants.
 
 ## Why stdio + no auth
 
