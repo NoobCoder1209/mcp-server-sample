@@ -36,6 +36,17 @@ function jsonResponse(body: unknown, init: { ok?: boolean; status?: number } = {
   } as unknown as Response;
 }
 
+/**
+ * Defensive guard: error-path text must never contain a V8 stack frame.
+ * `safe()` uses err.message (not err.stack) on purpose; this assertion
+ * catches a future regression where someone "improves" the wrapper to
+ * include stack details.
+ */
+function expectNoStackTrace(text: string): void {
+  expect(text).not.toMatch(/\bat .+\(.+:\d+:\d+\)/);
+  expect(text).not.toMatch(/\n\s+at /);
+}
+
 describe("tools smoke (mocked fetch)", () => {
   let handlers: Map<string, Handler>;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -108,6 +119,7 @@ describe("tools smoke (mocked fetch)", () => {
       const text = (result.content[0] as { text: string }).text;
       expect(text).toMatch(/HN API unavailable/);
       expect(text).toContain("HTTP 503");
+      expectNoStackTrace(text);
     });
   });
 
@@ -173,6 +185,7 @@ describe("tools smoke (mocked fetch)", () => {
       expect(result.isError).toBe(true);
       const text = (result.content[0] as { text: string }).text;
       expect(text).toBe("Item 999 not found.");
+      expectNoStackTrace(text);
     });
 
     it("rejects deleted items with isError", async () => {
@@ -185,6 +198,22 @@ describe("tools smoke (mocked fetch)", () => {
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain("Item 300");
       expect(text).toMatch(/deleted/i);
+      expectNoStackTrace(text);
+    });
+
+    it("rejects flagged (dead) items with isError", async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({ id: 400, type: "story", dead: true, by: "ghost", title: "Killed" }),
+      );
+
+      const handler = handlers.get("hn_get_story")!;
+      const result = await handler({ id: 400 });
+
+      expect(result.isError).toBe(true);
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain("Item 400");
+      expect(text).toMatch(/flagged/i);
+      expectNoStackTrace(text);
     });
 
     it("rejects non-story types (e.g. comment) with isError", async () => {
@@ -200,6 +229,7 @@ describe("tools smoke (mocked fetch)", () => {
       expect(text).toContain("Item 200");
       expect(text).toContain("comment");
       expect(text).toContain("not a story");
+      expectNoStackTrace(text);
     });
   });
 
@@ -264,6 +294,7 @@ describe("tools smoke (mocked fetch)", () => {
       const text = (result.content[0] as { text: string }).text;
       expect(text).toMatch(/HN API unavailable/);
       expect(text).toContain("network down");
+      expectNoStackTrace(text);
     });
   });
 });

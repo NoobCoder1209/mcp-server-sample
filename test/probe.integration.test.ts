@@ -147,20 +147,15 @@ describe.skipIf(!built)("probe integration (built server)", () => {
   });
 
   it("emits the ready banner on stderr", async () => {
-    // The banner is written on connect, which has already happened by the time
-    // the initialize round-trip completed. Joining all stderr chunks lets us
-    // assert against either a single write or a split one.
-    const combined = client.stderr.join("");
-    expect(combined).toContain("mcp-server-sample 0.1.0 ready on stdio");
-  });
-});
-
-// Provide an explicit skip case so vitest doesn't fail with "no tests" if the
-// build is missing in some local workflow. CI runs `pnpm build` before tests,
-// so this branch is mainly a developer-experience nicety.
-describe.skipIf(built)("probe integration (built server) — skipped: dist/index.js missing", () => {
-  it.skip("requires `pnpm build` to have run first", () => {
-    // Intentionally empty. The skipIf above hides this whole block when
-    // the build artifact exists.
+    // The banner is written on connect, before the initialize response goes
+    // out, but stdout and stderr are independent OS pipes — under load the
+    // stdout response can arrive before the stderr chunk. Poll briefly so a
+    // slow CI runner doesn't flake.
+    const banner = "mcp-server-sample 0.1.0 ready on stdio";
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline && !client.stderr.join("").includes(banner)) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(client.stderr.join("")).toContain(banner);
   });
 });
