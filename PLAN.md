@@ -1,51 +1,89 @@
 # `mcp-server-sample` — Execution Plan
 
-> Self-contained build plan. Inherits shared standards from the master plan.
+## How to use this plan
+
+You are the build session for this repo. Read this whole file before doing anything else, then start executing immediately — no kickoff prompt needed.
+
+**Working agreement:**
+
+1. **Start without waiting.** Read this file end-to-end, then begin Phase 1 in the *Subagent playbook* below.
+2. **Always ask the user about business decisions and business logic.** API choice, demo query content, screenshot framing. The "Business decisions" section below lists them.
+3. **Ask the user when you are genuinely blocked.**
+4. **Do not ask the user about engineering details.** SDK version, schema shape, file layout — make the call yourself.
+5. **Use subagents aggressively.** Default to the playbook below.
+6. **TaskCreate / TaskUpdate everything.**
+7. **Pattern 3 only.** No deployed demo. README has a config snippet + screenshots. Never commit secrets.
+8. **Follow shared standards** (MIT, README, CI, topics, private until verified).
+9. **All `Agent` tool calls must pass `model: "opus"`.**
+10. **Off-limits forever:** SAP, `~/.claude/`, RCA content.
+
+## Subagent playbook (this repo)
+
+MCP is moving fast. Research-heavy phase 1. 3 subagents per phase max.
+
+**Phase 1 — Research (parallel):**
+- `Explore` (Opus): "Find the latest `@modelcontextprotocol/sdk` server example for stdio transport in TypeScript, including `ListToolsRequestSchema` + `CallToolRequestSchema` handlers. Return ≤80-line skeleton."
+- `Explore` (Opus): "Find Hacker News public API endpoints (Firebase + Algolia) needed for top-stories, item-by-id, and search. Return URLs, response shapes, rate limits."
+- `Explore` (Opus): "Find the canonical `claude_desktop_config.json` snippet for wiring a local MCP stdio server. Return the exact JSON, and note Windows vs macOS path differences."
+
+**Phase 2 — Design (single):**
+- `Plan` (Opus): "Given the research and this PLAN.md, propose the file tree, three tool schemas, and a 4-step build order. Return as a checklist."
+
+**Phase 3 — Build:** main session writes the code. Dispatch `Explore` only on stuck-on-API-detail moments.
+
+**Phase 4 — Review (parallel):**
+- `code-reviewer` (Opus): "Review for MCP spec compliance, error path correctness (`isError: true`), zod input validation, README config snippet correctness. High effort."
+- `tester` (Opus): "Write smoke tests mocking `fetch` for each tool's happy path + one error path. Add a probe-script test that spawns the server and checks `tools/list`."
+
+**Phase 5 — Polish:** capture GIF (probe.ts output works if Claude Desktop is unavailable), apply review, ask user before flipping public.
+
+---
 
 ## Goal
 
 A minimal, well-documented **Model Context Protocol** server in TypeScript
-that wraps a free, no-auth public API. Anyone running Claude Desktop (or any
-MCP-aware client) can plug it in via a config snippet shipped in the README.
+that wraps a free, no-auth public API. Anyone running Claude Desktop can plug
+it in via a config snippet shipped in the README.
 
-MCP is one of the rarest, highest-paid skills on Upwork right now. A working
-sample = strong signal.
+MCP is one of the rarest, highest-paid skills on Upwork right now.
 
 **Sells:** MCP, Model Context Protocol, Anthropic Ecosystem, TypeScript, API Integration.
+
+## Business decisions to ask the user about
+
+- **Which public API to wrap** — recommend **Hacker News** (recognisable, stable, no auth). Alternatives: Wikipedia REST, GitHub public-repo metadata, NASA APOD.
+- **Demo query for the GIF** — recommend something topical (e.g. "search HN for 'Anthropic'"), but the user may have a brand-aligned topic.
+- **Whether to publish to npm** — defaults to "no" for v1. Ask before doing.
 
 ## Scope (must-haves)
 
 1. Implements the official MCP server spec using `@modelcontextprotocol/sdk`.
-2. Connects via **stdio transport** (the easiest one to integrate with Claude Desktop).
-3. Exposes **3 tools** that wrap a single public API. Choose the API once and
-   build all tools against it. Recommended: **Hacker News** (Firebase API,
-   no auth, well-documented, recognisable).
-   - `hn_top_stories(limit: int = 10)` — list top story IDs + titles
-   - `hn_get_story(id: int)` — full story details (title, url, author, score, comment count)
-   - `hn_search(query: string, limit: int = 5)` — uses Algolia's HN search endpoint
-4. Handles errors gracefully (HTTP non-200 → MCP `isError: true` response).
-5. README includes a **drop-in `claude_desktop_config.json` snippet** so a user
-   can wire the server into Claude Desktop in 30 seconds.
-6. Optional: tiny mock client script (`scripts/probe.ts`) that talks to the
-   server without needing Claude Desktop, for the GIF.
+2. **stdio transport.**
+3. **3 tools** wrapping a single public API. Suggested (HN):
+   - `hn_top_stories(limit: int = 10)`
+   - `hn_get_story(id: int)`
+   - `hn_search(query: string, limit: int = 5)`
+4. Graceful errors → MCP `isError: true` response.
+5. README includes drop-in `claude_desktop_config.json` snippet.
+6. Optional `scripts/probe.ts` for local probe (great for the GIF).
 
 ## Out of scope
 
-- No authentication / OAuth flows.
-- No SSE / HTTP transport — stdio only.
+- No auth / OAuth.
+- No SSE / HTTP transport.
 - No persistent state, caching, or DB.
-- No rate limit handling beyond surfacing API errors.
+- No rate-limit handling beyond surfacing errors.
 - No second API.
 
 ## Tech stack
 
 - **Language:** TypeScript 5.x, Node 20 LTS
 - **SDK:** `@modelcontextprotocol/sdk`
-- **HTTP:** native `fetch` (no axios)
-- **Validation:** `zod` (also used to derive tool input schemas)
+- **HTTP:** native `fetch`
+- **Validation:** `zod`
 - **Package manager:** `pnpm`
 - **Linting:** `eslint` + `prettier`
-- **Testing:** `vitest` (one smoke test mocking `fetch`)
+- **Testing:** `vitest`
 - **CI:** GitHub Actions
 
 ## File tree
@@ -63,22 +101,19 @@ mcp-server-sample/
   .eslintrc.cjs
   .prettierrc
   vitest.config.ts
-  .github/
-    workflows/ci.yml
+  .github/workflows/ci.yml
   src/
     index.ts                    ← MCP server boot, stdio transport
-    tools.ts                    ← tool definitions + handlers
-    hn-client.ts                ← thin HN API wrapper
-    schemas.ts                  ← zod schemas for tool inputs
-  test/
-    tools.smoke.test.ts
-  scripts/
-    probe.ts                    ← optional local probe (sends MCP requests over stdin)
+    tools.ts                    ← tool defs + handlers
+    hn-client.ts                ← thin HN wrapper
+    schemas.ts                  ← zod input schemas
+  test/tools.smoke.test.ts
+  scripts/probe.ts              ← optional local probe
   docs/
     architecture.md
     screenshots/
-      demo.gif                  ← Claude Desktop using the server, or probe output
-      claude-desktop-config.png ← screenshot of the config snippet in place
+      demo.gif
+      claude-desktop-config.png
 ```
 
 ## Step-by-step build
@@ -94,8 +129,7 @@ npx tsc --init
 ```
 
 `tsconfig.json`: `"target": "ES2022"`, `"module": "Node16"`, `"moduleResolution": "Node16"`,
-`"strict": true`, `"outDir": "dist"`, `"declaration": true` (lets users
-`npm i` and import types if they want).
+`"strict": true`, `"outDir": "dist"`, `"declaration": true`.
 
 `package.json`:
 ```json
@@ -115,25 +149,11 @@ npx tsc --init
 
 ### 2. `src/hn-client.ts`
 
-Thin wrapper around HN endpoints:
-```ts
-const BASE = "https://hacker-news.firebaseio.com/v0";
-const ALGOLIA = "https://hn.algolia.com/api/v1";
-
-export async function topStoryIds(): Promise<number[]> {
-  const r = await fetch(`${BASE}/topstories.json`);
-  if (!r.ok) throw new Error(`HN topstories failed: ${r.status}`);
-  return r.json();
-}
-
-export async function getItem(id: number) { /* … */ }
-export async function search(query: string, limit: number) { /* … */ }
-```
+Thin wrapper around HN endpoints — `topStoryIds()`, `getItem(id)`, `search(query, limit)`.
 
 ### 3. `src/schemas.ts`
 
 ```ts
-import { z } from "zod";
 export const TopStoriesInput = z.object({ limit: z.number().int().min(1).max(50).default(10) });
 export const GetStoryInput   = z.object({ id: z.number().int() });
 export const SearchInput     = z.object({ query: z.string().min(1), limit: z.number().int().min(1).max(20).default(5) });
@@ -141,108 +161,63 @@ export const SearchInput     = z.object({ query: z.string().min(1), limit: z.num
 
 ### 4. `src/tools.ts`
 
-Define tools as MCP-compliant objects. Each tool: name, description, input
-schema (zod → JSON schema via `zod-to-json-schema` or hand-written), handler
-returning the MCP `CallToolResult` shape (`content: [{ type: "text", text: "..." }]`).
-
-Handler bodies: validate input with zod, call `hn-client`, format output as a
-human-readable text block (clients can also parse it). Surface errors as
-`{ content: [...], isError: true }`.
+Tool defs (name + description + JSON schema). Handlers validate with zod, call
+`hn-client`, format output as a text block, surface errors via `isError: true`.
 
 ### 5. `src/index.ts`
 
 ```ts
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { tools, dispatchTool } from "./tools.js";
-
 const server = new Server(
   { name: "mcp-server-sample", version: "0.1.0" },
   { capabilities: { tools: {} } },
 );
-
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 server.setRequestHandler(CallToolRequestSchema, async (req) =>
   dispatchTool(req.params.name, req.params.arguments ?? {}),
 );
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
+await server.connect(new StdioServerTransport());
 ```
 
 ### 6. `scripts/probe.ts`
 
-Sends a few JSON-RPC requests over stdio for local sanity-checking — useful
-for the GIF if you don't want to record Claude Desktop. Spawns the server,
-sends `tools/list`, then `tools/call` for `hn_top_stories`, prints output.
+Spawns the server, sends `tools/list`, then `tools/call` for `hn_top_stories`. Prints output.
 
 ### 7. Smoke test
 
-`vi.mock` `fetch` (or use `undici`'s mock pool). One test: calling
-`hn_top_stories` returns text containing the mocked title.
+`vi.mock` `fetch`. One test: `hn_top_stories` returns text with mocked title. One test for an error path.
 
 ### 8. CI
 
-- Setup Node 20 + pnpm
-- `pnpm install --frozen-lockfile`
-- `pnpm lint`, `pnpm exec tsc --noEmit`, `pnpm test`
-- `pnpm build` to confirm dist compiles
+Setup Node 20 + pnpm; `pnpm install --frozen-lockfile`; `pnpm lint`; `pnpm exec tsc --noEmit`; `pnpm test`; `pnpm build`.
 
 ### 9. README
 
-1. **Title** — *mcp-server-sample — A minimal Model Context Protocol server (TypeScript)*
-2. **Demo** — `docs/screenshots/demo.gif` (Claude Desktop calling `hn_search` for "Anthropic")
-3. **What it shows**:
-   - MCP server spec implementation, stdio transport
-   - Three tools wrapping a real public API
-   - Type-safe inputs via zod
-   - Drop-in Claude Desktop config snippet
-4. **Skills demonstrated** — MCP, Model Context Protocol, Anthropic Ecosystem, TypeScript, API Integration, JSON-RPC
-5. **Quick start (Claude Desktop)** — explicit `claude_desktop_config.json`:
-   ```json
-   {
-     "mcpServers": {
-       "hn-sample": {
-         "command": "node",
-         "args": ["/absolute/path/to/dist/index.js"]
-       }
-     }
-   }
-   ```
-   Plus build instructions.
-6. **Quick start (local probe, no Claude Desktop)**:
-   ```bash
-   pnpm install && pnpm build && pnpm probe
-   ```
-7. **How it works** — short paragraph + tiny diagram (client ↔ stdio ↔ server ↔ HN API)
-8. **Tools** — table of name / description / inputs / example output
-9. **License** — MIT
+1. Title — *mcp-server-sample — A minimal MCP server (TypeScript)*
+2. Demo — `docs/screenshots/demo.gif`
+3. What it shows
+4. Skills demonstrated — MCP, Model Context Protocol, Anthropic Ecosystem, TypeScript, API Integration, JSON-RPC
+5. Quick start (Claude Desktop) — exact JSON config snippet
+6. Quick start (local probe) — `pnpm install && pnpm build && pnpm probe`
+7. How it works (small diagram)
+8. Tools — table (name / description / inputs / example output)
+9. License — MIT
 
 ### 10. Polish + flip public
 
-GIF or animated terminal recording. Topics: `mcp`, `model-context-protocol`,
-`claude-desktop`, `anthropic`, `typescript`, `hacker-news`. Flip public.
+Topics: `mcp`, `model-context-protocol`, `claude-desktop`, `anthropic`, `typescript`, `hacker-news`. Ask user before flipping.
 
 ## Verification
 
-- [ ] Fresh clone: `pnpm install && pnpm build && pnpm probe` lists tools and calls one successfully against real HN
+- [ ] Fresh clone: `pnpm install && pnpm build && pnpm probe` lists tools and calls one against real HN
 - [ ] Server connects to Claude Desktop using the snippet (manual test)
-- [ ] Each tool's error path returns `isError: true` (test by passing bad input)
-- [ ] Lint, type-check, tests, build all green in CI
-- [ ] No env vars / secrets needed (HN is public)
-- [ ] README config snippet uses an absolute path placeholder, not a hardcoded user path
+- [ ] Each tool's error path returns `isError: true`
+- [ ] Lint, type-check, tests, build green in CI
+- [ ] No env vars / secrets needed (HN public)
+- [ ] README config snippet uses `<absolute-path>` placeholder, not a hardcoded user path
 - [ ] Topics + description set
-- [ ] No mention of Claude Code / SAP / personal `~/.claude/` material
 
 ## Stretch (defer)
 
-- Add a second public API (e.g. `wttr.in` weather) as a separate set of tools
-  to show multi-tool wiring
+- Second API (`wttr.in`) showing multi-tool wiring
 - HTTP/SSE transport variant
-- Auto-publish to npm so users can `npx mcp-server-sample`
-
-v2 only — do not pull into v1.
+- Auto-publish to npm
