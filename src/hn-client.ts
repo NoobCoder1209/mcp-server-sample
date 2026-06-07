@@ -1,6 +1,13 @@
 const FIREBASE_BASE = "https://hacker-news.firebaseio.com/v0";
 const ALGOLIA_SEARCH = "https://hn.algolia.com/api/v1/search";
+
+// HN Firebase typical p99 ~2s; 8s leaves comfortable slack for slow links
+// and still fails fast enough that an MCP client doesn't appear hung.
 const REQUEST_TIMEOUT_MS = 8_000;
+
+// HN Firebase has no documented rate limit and Algolia is generous
+// (~10k req/hour per IP, undocumented). 10 in flight is polite and
+// keeps the top-stories N+1 fetch under ~1s in practice.
 const FAN_OUT_CONCURRENCY = 10;
 
 export interface HnStory {
@@ -52,7 +59,9 @@ async function concurrentMap<T, U>(
     for (;;) {
       const idx = cursor++;
       if (idx >= items.length) return;
-      results[idx] = await fn(items[idx] as T);
+      const item = items[idx];
+      if (item === undefined) return; // unreachable given the bounds check above
+      results[idx] = await fn(item);
     }
   });
   await Promise.all(workers);
@@ -69,8 +78,10 @@ export async function getItem(id: number): Promise<HnStory | null> {
 
 export async function topStories(limit: number): Promise<HnStory[]> {
   const ids = await topStoryIds();
-  // Fetch a few extra to absorb job posts / deleted items, then filter.
-  const slice = ids.slice(0, limit + 5);
+  // Over-fetch to absorb job posts and deleted/dead items. HN front
+  // page often has 3-6 jobs at any time, so a small `limit + 5` buffer
+  // can come up short for low limits.
+  const slice = ids.slice(0, Math.min(limit * 2 + 10, 50));
   const items = await concurrentMap(slice, FAN_OUT_CONCURRENCY, getItem);
   const stories = items.filter(
     (it): it is HnStory => it !== null && it.type === "story" && !it.deleted && !it.dead,
@@ -98,21 +109,30 @@ export async function search(query: string, limit: number): Promise<HnSearchHit[
   }
 
   const res = await fetchJson<AlgoliaResponse>(url.toString());
-  return res.hits.map((h) => ({
-    id: Number.parseInt(h.objectID, 10),
-    title: h.title ?? "(untitled)",
-    url: h.url,
-    author: h.author,
-    points: h.points ?? 0,
-    num_comments: h.num_comments ?? 0,
-    created_at: h.created_at,
-  }));
+  return res.hits.flatMap((h) => {
+    const id = Number.parseInt(h.objectID, 10);
+    if (!Number.isFinite(id)) return []; // Algolia contract is int-shaped; skip if malformed.
+    return [
+      {
+        id,
+        title: h.title ?? "(untitled)",
+        url: h.url,
+        author: h.author,
+        points: h.points ?? 0,
+        num_comments: h.num_comments ?? 0,
+        created_at: h.created_at,
+      },
+    ];
+  });
 }
 
 export function permalink(id: number): string {
   return `https://news.ycombinator.com/item?id=${id}`;
 }
 
+// Naive on purpose: HN posts use a small, stable subset of HTML
+// (<p>, <i>, <a>, <pre>, <code>) and a handful of named entities.
+// A full HTML parser would be overkill for a portfolio demo wrapper.
 export function stripHtml(input: string): string {
   return input
     .replace(/<[^>]+>/g, "")

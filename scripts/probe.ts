@@ -26,7 +26,7 @@ const child = spawn("node", [serverEntry], {
 });
 
 const rl = createInterface({ input: child.stdout });
-const pending = new Map<number, (msg: JsonRpcMessage) => void>();
+const pending = new Map<number, { resolve: (msg: JsonRpcMessage) => void; reject: (err: Error) => void }>();
 let nextId = 1;
 
 rl.on("line", (line) => {
@@ -42,7 +42,11 @@ rl.on("line", (line) => {
     const cb = pending.get(msg.id);
     if (cb) {
       pending.delete(msg.id);
-      cb(msg);
+      if (msg.error) {
+        cb.reject(new Error(`JSON-RPC error ${msg.error.code}: ${msg.error.message}`));
+      } else {
+        cb.resolve(msg);
+      }
     }
   }
 });
@@ -50,15 +54,24 @@ rl.on("line", (line) => {
 function send(method: string, params: unknown): Promise<JsonRpcMessage> {
   return new Promise((resolveResp, rejectResp) => {
     const id = nextId++;
-    pending.set(id, resolveResp);
-    const payload: JsonRpcMessage = { jsonrpc: "2.0", id, method, params };
-    child.stdin.write(JSON.stringify(payload) + "\n");
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
         rejectResp(new Error(`Timeout waiting for response to ${method}`));
       }
     }, 12_000);
+    pending.set(id, {
+      resolve: (msg) => {
+        clearTimeout(timer);
+        resolveResp(msg);
+      },
+      reject: (err) => {
+        clearTimeout(timer);
+        rejectResp(err);
+      },
+    });
+    const payload: JsonRpcMessage = { jsonrpc: "2.0", id, method, params };
+    child.stdin.write(JSON.stringify(payload) + "\n");
   });
 }
 

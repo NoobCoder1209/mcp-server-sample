@@ -19,6 +19,9 @@ function safe<A>(
     try {
       return await handler(args);
     } catch (err) {
+      // McpServer.registerTool validates inputs against `inputSchema` before
+      // invoking the handler, so a ZodError reaching here is unexpected.
+      // Kept as a defensive net for any handler that re-parses input itself.
       if (err instanceof ZodError) {
         const issues = err.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`);
         return errorResult(`Invalid input — ${issues.join("; ")}`);
@@ -65,7 +68,8 @@ export function registerTools(server: McpServer): void {
     "hn_get_story",
     {
       title: "Get a Hacker News story",
-      description: "Fetch a single Hacker News item by id. Returns title, author, score, body, and URL.",
+      description:
+        "Fetch a single Hacker News story by id. Returns title, author, score, body, and URL. Comments, jobs, polls, and pollopts are rejected — use Hacker News directly for those.",
       inputSchema: GetStoryInput,
     },
     safe(async ({ id }: { id: number }) => {
@@ -75,6 +79,14 @@ export function registerTools(server: McpServer): void {
       }
       if (item.deleted) {
         return errorResult(`Item ${id} has been deleted.`);
+      }
+      if (item.dead) {
+        return errorResult(`Item ${id} has been flagged and is no longer visible.`);
+      }
+      if (item.type !== "story") {
+        return errorResult(
+          `Item ${id} is a ${item.type}, not a story. hn_get_story only returns stories.`,
+        );
       }
       const head = formatStoryLine(item);
       const body = item.text ? `\n\n${hn.stripHtml(item.text)}` : "";
