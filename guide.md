@@ -5,10 +5,11 @@ you'll have the demo running in about 90 seconds.
 
 > **Last verified:** 2026-06-09, against commit
 > [`1b84dbb`](https://github.com/NoobCoder1209/mcp-server-sample/commit/1b84dbb).
-> Ran `pnpm install --frozen-lockfile && pnpm build && pnpm test && pnpm probe` on macOS
-> (Node 26, pnpm 9.15.4). All 14 tests passed; probe completed `initialize` →
-> `tools/list` (3 tools) → `tools/call hn_search { query: "Anthropic", limit: 5 }` and
-> printed 5 well-formatted Hacker News results.
+> Ran `pnpm install --frozen-lockfile && pnpm build && pnpm test && pnpm probe` on
+> macOS (Darwin 25.5.0, Node v26.3.0, pnpm 9.15.4). All 14 tests passed; probe
+> completed `initialize` → `tools/list` (3 tools) → `tools/call hn_search { query:
+> "Anthropic", limit: 5 }` and printed 5 well-formatted Hacker News results. The
+> package's supported floor is Node 20 (`engines.node: ">=20"`); CI runs Node 20.
 
 ## What this repo is
 
@@ -129,7 +130,7 @@ mcp-server-sample/
 ├── .eslintrc.cjs              ESLint config. no-console rule on src/ — stdout is JSON-RPC.
 ├── .prettierrc                Formatter config.
 ├── .gitignore                 Ignores node_modules, dist, .env*, etc.
-├── .env.example               Empty — this server needs no env vars.
+├── .env.example               Comment-only — explicitly notes no env vars are needed.
 ├── .github/
 │   └── workflows/
 │       └── ci.yml             GitHub Actions: install → lint → typecheck → build → test on Node 20.
@@ -155,7 +156,9 @@ mcp-server-sample/
 │   └── screenshots/
 │       └── demo.gif           Embedded in the README hero. 1100×650, ~215 KB.
 └── dist/                      Build output. Created by `pnpm build`. Gitignored.
-    └── index.js               The executable MCP server. Targeted by package.json `bin`.
+    ├── index.js               The executable MCP server. Targeted by package.json `bin`.
+    └── …                      Plus compiled `.js` / `.d.ts` / `.js.map` for each
+                               `src/` module (tools, hn-client, schemas).
 ```
 
 ## Environment variables and secrets
@@ -167,7 +170,8 @@ intentionally empty (kept for consistency with the rest of the portfolio).
 If you fork this and add an authenticated upstream, the conventional place to add
 secrets would be a `.env` file in the repo root (already gitignored via `.env.*`) and
 an `import "dotenv/config"` near the top of `src/index.ts`. None of that is wired up
-here because nothing needs it.
+here because nothing needs it. The committed `.env.example` is a comment-only header
+that exists for consistency with the rest of the portfolio.
 
 ## Wiring into Claude Desktop
 
